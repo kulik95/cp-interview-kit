@@ -159,7 +159,8 @@ router.post('/invite', requireOwnerOrAdmin, async (req: AuthRequest, res: Respon
         message: `${name} has been added to your organization`
       }
     });
-    console.log(`User ${email} created with password: ${defaultPassword}`);
+    // Log email only — temporary password must not appear in logs.
+    console.log(`User ${email} created`);
 
     // Audit log
     await prisma.auditLog.create({
@@ -374,7 +375,7 @@ router.post('/api-keys', requireOwnerOrAdmin, async (req: AuthRequest, res: Resp
         expiresAt
       }
     });
-    console.log(`Created API key: ${key} for org ${req.user!.organizationId}`);
+    console.log(`Created API key for org ${req.user!.organizationId}`);
 
     // Audit log
     await prisma.auditLog.create({

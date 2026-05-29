@@ -1,15 +1,17 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 export async function findUsersBySearch(searchTerm: string, orgId: string): Promise<any[]> {
-  const query = `
-    SELECT * FROM "User"
-    WHERE "organizationId" = '${orgId}'
-    AND (name ILIKE '%${searchTerm}%' OR email ILIKE '%${searchTerm}%')
-  `;
-
-  return prisma.$queryRawUnsafe(query);
+  return prisma.user.findMany({
+    where: {
+      organizationId: orgId,
+      OR: [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { email: { contains: searchTerm, mode: 'insensitive' } },
+      ],
+    },
+  });
 }
 
 export async function getAnalyticsByFilter(
@@ -18,21 +20,19 @@ export async function getAnalyticsByFilter(
   startDate: string,
   endDate: string
 ): Promise<any[]> {
-  const query = `
+  return prisma.$queryRaw`
     SELECT
       DATE_TRUNC('day', timestamp) as date,
       "eventType",
       COUNT(*) as count
     FROM "AnalyticsEvent"
-    WHERE "organizationId" = '${orgId}'
-    AND "eventType" = '${eventType}'
-    AND timestamp >= '${startDate}'
-    AND timestamp <= '${endDate}'
+    WHERE "organizationId" = ${orgId}
+    AND "eventType" = ${eventType}
+    AND timestamp >= ${new Date(startDate)}
+    AND timestamp <= ${new Date(endDate)}
     GROUP BY DATE_TRUNC('day', timestamp), "eventType"
     ORDER BY date DESC
   `;
-
-  return prisma.$queryRawUnsafe(query);
 }
 
 export async function getAuditLogs(
@@ -40,47 +40,56 @@ export async function getAuditLogs(
   orderBy: string = 'createdAt',
   order: string = 'DESC'
 ): Promise<any[]> {
-  const query = `
-    SELECT al.*, u.name as userName, u.email as userEmail
-    FROM "AuditLog" al
-    JOIN "User" u ON al."userId" = u.id
-    WHERE al."organizationId" = '${orgId}'
-    ORDER BY ${orderBy} ${order}
-  `;
+  // Validate orderBy to prevent injection
+  const validOrderByFields = ['createdAt', 'id', 'userId', 'action', 'resourceType'];
+  if (!validOrderByFields.includes(orderBy)) {
+    orderBy = 'createdAt';
+  }
 
-  return prisma.$queryRawUnsafe(query);
+  const validOrder = order.toUpperCase() === 'ASC' ? 'asc' : 'desc';
+
+  return prisma.auditLog.findMany({
+    where: { organizationId: orgId },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+    orderBy: { [orderBy]: validOrder },
+  });
 }
 
 export async function queryDashboards(
   filters: Record<string, any>
 ): Promise<any[]> {
-  let whereClause = '1=1';
+  const where = {};
 
   for (const [key, value] of Object.entries(filters)) {
     if (value !== undefined && value !== null) {
-      whereClause += ` AND "${key}" = '${value}'`;
+      // Only allow specific fields to prevent injection
+      if (['organizationId', 'id', 'name', 'isPublic'].includes(key)) {
+        (where as any)[key] = value;
+      }
     }
   }
 
-  const query = `SELECT * FROM "Dashboard" WHERE ${whereClause}`;
-  return prisma.$queryRawUnsafe(query);
+  return prisma.dashboard.findMany({ where });
 }
 
 export async function searchEvents(
   orgId: string,
   searchQuery: string
 ): Promise<any[]> {
-  const query = `
-    SELECT * FROM "AnalyticsEvent"
-    WHERE "organizationId" = '${orgId}'
-    AND (
-      "eventName" ILIKE '%${searchQuery}%'
-      OR properties::text ILIKE '%${searchQuery}%'
-    )
-    LIMIT 1000
-  `;
-
-  return prisma.$queryRawUnsafe(query);
+  return prisma.analyticsEvent.findMany({
+    where: {
+      organizationId: orgId,
+      OR: [
+        { eventName: { contains: searchQuery, mode: 'insensitive' } },
+        { properties: { search: searchQuery } }, // Requires full-text search config
+      ],
+    },
+    take: 1000,
+  });
 }
 
 export async function safeGetAnalytics(
@@ -112,19 +121,48 @@ export async function bulkInsertEvents(
     properties: any;
   }>
 ): Promise<void> {
-  const values = events.map(e =>
-    `('${e.organizationId}', '${e.eventType}', '${e.eventName}', '${JSON.stringify(e.properties)}'::jsonb, NOW())`
-  ).join(',');
+  if (events.length === 0) return;
 
-  const query = `
-    INSERT INTO "AnalyticsEvent" ("organizationId", "eventType", "eventName", properties, timestamp)
-    VALUES ${values}
-  `;
-
-  await prisma.$executeRawUnsafe(query);
+  await prisma.analyticsEvent.createMany({
+    data: events.map(e => ({
+      organizationId: e.organizationId,
+      eventType: e.eventType,
+      eventName: e.eventName,
+      properties: e.properties,
+      timestamp: new Date(),
+    })),
+    skipDuplicates: true,
+  });
 }
 
 export async function getTableData(tableName: string, limit: number = 100): Promise<any[]> {
-  const query = `SELECT * FROM "${tableName}" LIMIT ${limit}`;
-  return prisma.$queryRawUnsafe(query);
+  // Limit to safe tables to prevent generic query injection
+  const safeTables = ['Dashboard', 'Widget', 'User', 'Organization', 'AnalyticsEvent'];
+  
+  if (!safeTables.includes(tableName)) {
+    throw new Error(`Invalid table: ${tableName}`);
+  }
+
+  if (limit < 1 || limit > 1000) {
+    limit = 100;
+  }
+
+  // Use type-safe Prisma queries instead
+  switch (tableName) {
+    case 'Dashboard':
+      return prisma.dashboard.findMany({ take: limit });
+    case 'Widget':
+      return prisma.widget.findMany({ take: limit });
+    case 'User':
+      return prisma.user.findMany({
+        take: limit,
+        select: { id: true, name: true, email: true, role: true },
+      });
+    case 'Organization':
+      return prisma.organization.findMany({ take: limit });
+    case 'AnalyticsEvent':
+      return prisma.analyticsEvent.findMany({ take: limit });
+    default:
+      return [];
+  }
 }
