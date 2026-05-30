@@ -12,6 +12,67 @@ import {
   fetchTeamMembers
 } from '../services/api';
 
+function getAuditUserLabel(log: any): string {
+  return log.user?.name || log.user?.email || log.userName || 'Unknown user';
+}
+
+function getAuditResourceLabel(log: any): string {
+  const details = log.details || {};
+  const name =
+    details.name ||
+    details.invitedEmail ||
+    details.deletedEmail ||
+    details.url ||
+    details.newTier;
+
+  if (name) {
+    return `${log.resourceType}: ${name}`;
+  }
+
+  return log.resourceType || 'Unknown resource';
+}
+
+function AuditLogDetailView({ log }: { log: any }) {
+  const details = log.details;
+
+  return (
+    <dl className="space-y-4">
+      <div>
+        <dt className="text-sm text-gray-500">Action</dt>
+        <dd className="font-medium">{log.action}</dd>
+      </div>
+      <div>
+        <dt className="text-sm text-gray-500">User</dt>
+        <dd className="font-medium">{getAuditUserLabel(log)}</dd>
+      </div>
+      <div>
+        <dt className="text-sm text-gray-500">Resource</dt>
+        <dd className="font-medium">{getAuditResourceLabel(log)}</dd>
+      </div>
+      <div>
+        <dt className="text-sm text-gray-500">IP Address</dt>
+        <dd className="font-medium">{log.ipAddress || 'N/A'}</dd>
+      </div>
+      <div>
+        <dt className="text-sm text-gray-500">User Agent</dt>
+        <dd className="font-mono text-sm break-all">{log.userAgent || 'N/A'}</dd>
+      </div>
+      <div>
+        <dt className="text-sm text-gray-500">Timestamp</dt>
+        <dd className="font-medium">{new Date(log.createdAt).toLocaleString()}</dd>
+      </div>
+      {details && Object.keys(details).length > 0 && (
+        <div>
+          <dt className="text-sm text-gray-500">Details</dt>
+          <dd className="font-mono text-sm bg-gray-100 p-2 rounded mt-1 overflow-x-auto">
+            <pre>{JSON.stringify(details, null, 2)}</pre>
+          </dd>
+        </div>
+      )}
+    </dl>
+  );
+}
+
 export default function AuditLogs() {
   const queryClient = useQueryClient();
 
@@ -87,7 +148,7 @@ export default function AuditLogs() {
     cleanupMutation.mutate(cleanupDays);
   };
 
-  const resourceTypes = ['dashboard', 'widget', 'user', 'organization', 'webhook', 'api_key'];
+  const resourceTypes = ['dashboard', 'widget', 'user', 'organization', 'webhook', 'apikey'];
 
   if (isLoading) {
     return (
@@ -242,15 +303,8 @@ export default function AuditLogs() {
                       {log.action}
                     </span>
                   </td>
-                  <td className="py-3 px-4">{log.userName || log.userId}</td>
-                  <td className="py-3 px-4">
-                    <span className="text-gray-500">{log.resourceType}</span>
-                    {log.resourceId && (
-                      <span className="text-xs ml-1 text-gray-400">
-                        ({log.resourceId.slice(0, 8)}...)
-                      </span>
-                    )}
-                  </td>
+                  <td className="py-3 px-4">{getAuditUserLabel(log)}</td>
+                  <td className="py-3 px-4">{getAuditResourceLabel(log)}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">{log.ipAddress}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">
                     {new Date(log.createdAt).toLocaleString()}
@@ -283,51 +337,7 @@ export default function AuditLogs() {
               </button>
             </div>
             <div className="p-4">
-              <dl className="space-y-4">
-                <div>
-                  <dt className="text-sm text-gray-500">Action</dt>
-                  <dd className="font-medium">{logDetail?.action || selectedLog.action}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">User</dt>
-                  <dd className="font-medium">{logDetail?.userName || selectedLog.userName || selectedLog.userId}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">Resource</dt>
-                  <dd className="font-medium">
-                    {logDetail?.resourceType || selectedLog.resourceType}
-                    {(logDetail?.resourceId || selectedLog.resourceId) && (
-                      <span className="text-gray-500 ml-2">
-                        ({logDetail?.resourceId || selectedLog.resourceId})
-                      </span>
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">IP Address</dt>
-                  <dd className="font-medium">{logDetail?.ipAddress || selectedLog.ipAddress}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">User Agent</dt>
-                  <dd className="font-mono text-sm break-all">
-                    {logDetail?.userAgent || selectedLog.userAgent || 'N/A'}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-sm text-gray-500">Timestamp</dt>
-                  <dd className="font-medium">
-                    {new Date(logDetail?.createdAt || selectedLog.createdAt).toLocaleString()}
-                  </dd>
-                </div>
-                {(logDetail?.metadata || selectedLog.metadata) && (
-                  <div>
-                    <dt className="text-sm text-gray-500">Metadata</dt>
-                    <dd className="font-mono text-sm bg-gray-100 p-2 rounded mt-1 overflow-x-auto">
-                      <pre>{JSON.stringify(logDetail?.metadata || selectedLog.metadata, null, 2)}</pre>
-                    </dd>
-                  </div>
-                )}
-              </dl>
+              <AuditLogDetailView log={logDetail || selectedLog} />
             </div>
           </div>
         </div>

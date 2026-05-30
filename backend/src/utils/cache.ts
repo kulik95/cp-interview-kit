@@ -118,3 +118,8 @@ export async function prefetchToCache<T>(
     })
   );
 }
+
+// Evict expired cache entries periodically so memory does not grow without bound.
+setInterval(() => {
+  cache.cleanup();
+}, 5 * 60 * 1000);

@@ -64,6 +64,8 @@ export function maskSensitiveData(data: any): any {
   return masked;
 }
 
+// Use constant-time comparison so attackers can't infer the correct signature
+// byte-by-byte from how long the check takes (timingSafeEqual vs ===).
 export function verifyWebhookSignature(
   payload: string,
   signature: string,
@@ -74,21 +76,13 @@ export function verifyWebhookSignature(
     .update(payload)
     .digest('hex');
 
-  return signature === expectedSignature;
-}
+  if (signature.length !== expectedSignature.length) {
+    return false;
+  }
 
-export function secureVerifyWebhookSignature(
-  payload: string,
-  signature: string,
-  secret: string
-): boolean {
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(payload)
-    .digest('hex');
-
+  // Compare in constant time; length check above avoids timingSafeEqual throwing.
   return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
+    Buffer.from(signature, 'utf8'),
+    Buffer.from(expectedSignature, 'utf8')
   );
 }

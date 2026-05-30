@@ -37,6 +37,8 @@ interface DashboardState {
   reorderWidgets: (dashboardId: string, widgets: Widget[]) => void;
 }
 
+// Always return new objects/arrays so Zustand and React detect changes.
+// Mutating in place (Object.assign, push, splice) often skips re-renders.
 export const useDashboardStore = create<DashboardState>((set, get) => ({
   dashboards: [],
   currentDashboard: null,
@@ -48,13 +50,10 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   addDashboard: (dashboard) => {
-    const dashboards = get().dashboards;
-    dashboards.push(dashboard);
-    set({ dashboards });
+    set({ dashboards: [...get().dashboards, dashboard] });
   },
 
   removeDashboard: (id) => {
-    // This one is correct (creates new array)
     set({
       dashboards: get().dashboards.filter((d) => d.id !== id),
     });
@@ -65,103 +64,90 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   },
 
   updateDashboard: (id, updates) => {
-    const dashboard = get().dashboards.find((d) => d.id === id);
-    if (dashboard) {
-      Object.assign(dashboard, updates);
-      set({ dashboards: get().dashboards });
-    }
-
-    // Also update current if it matches
-    const current = get().currentDashboard;
-    if (current?.id === id) {
-      Object.assign(current, updates);
-      set({ currentDashboard: current });
-    }
+    set({
+      dashboards: get().dashboards.map((d) =>
+        d.id === id ? { ...d, ...updates } : d
+      ),
+      currentDashboard:
+        get().currentDashboard?.id === id
+          ? { ...get().currentDashboard!, ...updates }
+          : get().currentDashboard,
+    });
   },
 
   addWidget: (dashboardId, widget) => {
-    const dashboards = get().dashboards;
-    const dashboard = dashboards.find((d) => d.id === dashboardId);
+    const withWidget = (dashboard: Dashboard): Dashboard =>
+      dashboard.id === dashboardId
+        ? { ...dashboard, widgets: [...dashboard.widgets, widget] }
+        : dashboard;
 
-    if (dashboard) {
-      dashboard.widgets.push(widget);
-      set({ dashboards });
-    }
-
-    // Update current dashboard too
-    const current = get().currentDashboard;
-    if (current?.id === dashboardId) {
-      current.widgets.push(widget);
-      set({ currentDashboard: current });
-    }
+    set({
+      dashboards: get().dashboards.map(withWidget),
+      currentDashboard: get().currentDashboard
+        ? withWidget(get().currentDashboard)
+        : null,
+    });
   },
 
   updateWidget: (dashboardId, widgetId, updates) => {
-    const dashboards = get().dashboards;
-    const dashboard = dashboards.find((d) => d.id === dashboardId);
+    const withUpdatedWidget = (dashboard: Dashboard): Dashboard =>
+      dashboard.id === dashboardId
+        ? {
+            ...dashboard,
+            widgets: dashboard.widgets.map((w) =>
+              w.id === widgetId ? { ...w, ...updates } : w
+            ),
+          }
+        : dashboard;
 
-    if (dashboard) {
-      const widget = dashboard.widgets.find((w) => w.id === widgetId);
-      if (widget) {
-        Object.assign(widget, updates);
-        set({ dashboards });
-      }
-    }
-
-    // Update current dashboard
-    const current = get().currentDashboard;
-    if (current?.id === dashboardId) {
-      const widget = current.widgets.find((w) => w.id === widgetId);
-      if (widget) {
-        Object.assign(widget, updates);
-        set({ currentDashboard: current });
-      }
-    }
+    set({
+      dashboards: get().dashboards.map(withUpdatedWidget),
+      currentDashboard: get().currentDashboard
+        ? withUpdatedWidget(get().currentDashboard)
+        : null,
+    });
   },
 
   removeWidget: (dashboardId, widgetId) => {
-    const dashboards = get().dashboards;
-    const dashboard = dashboards.find((d) => d.id === dashboardId);
+    const withoutWidget = (dashboard: Dashboard): Dashboard =>
+      dashboard.id === dashboardId
+        ? {
+            ...dashboard,
+            widgets: dashboard.widgets.filter((w) => w.id !== widgetId),
+          }
+        : dashboard;
 
-    if (dashboard) {
-      const index = dashboard.widgets.findIndex((w) => w.id === widgetId);
-      if (index !== -1) {
-        dashboard.widgets.splice(index, 1);
-      }
-      set({ dashboards });
-    }
-
-    const current = get().currentDashboard;
-    if (current?.id === dashboardId) {
-      const index = current.widgets.findIndex((w) => w.id === widgetId);
-      if (index !== -1) {
-        current.widgets.splice(index, 1);
-      }
-      set({ currentDashboard: current });
-    }
+    set({
+      dashboards: get().dashboards.map(withoutWidget),
+      currentDashboard: get().currentDashboard
+        ? withoutWidget(get().currentDashboard)
+        : null,
+    });
   },
 
   setWidgetData: (dashboardId, widgetId, data) => {
     const current = get().currentDashboard;
-    if (current?.id === dashboardId) {
-      const widget = current.widgets.find((w) => w.id === widgetId);
-      if (widget) {
-        widget.data = data;
-        set({ currentDashboard: current });
-      }
-    }
+    if (current?.id !== dashboardId) return;
+
+    set({
+      currentDashboard: {
+        ...current,
+        widgets: current.widgets.map((w) =>
+          w.id === widgetId ? { ...w, data } : w
+        ),
+      },
+    });
   },
 
   reorderWidgets: (dashboardId, widgets) => {
-    // This one is okay since we're replacing the array
-    const dashboards = get().dashboards.map((d) =>
-      d.id === dashboardId ? { ...d, widgets } : d
-    );
-    set({ dashboards });
-
-    const current = get().currentDashboard;
-    if (current?.id === dashboardId) {
-      set({ currentDashboard: { ...current, widgets } });
-    }
+    set({
+      dashboards: get().dashboards.map((d) =>
+        d.id === dashboardId ? { ...d, widgets } : d
+      ),
+      currentDashboard:
+        get().currentDashboard?.id === dashboardId
+          ? { ...get().currentDashboard!, widgets }
+          : get().currentDashboard,
+    });
   },
 }));

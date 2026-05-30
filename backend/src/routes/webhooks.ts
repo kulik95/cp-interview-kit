@@ -310,8 +310,9 @@ router.post('/incoming/:webhookId', async (req: Request, res: Response) => {
       }
     }
 
-    // Process incoming webhook
-    console.log(`Received webhook ${webhookId}:`, req.body);
+    // Process incoming webhook — log metadata only, not the full payload (may contain secrets/PII).
+    const eventType = req.body?.type ?? req.body?.event ?? 'unknown';
+    console.log(`Received webhook ${webhookId}, event: ${eventType}`);
 
     // Would process data here
 

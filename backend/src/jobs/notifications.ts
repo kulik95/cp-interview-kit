@@ -13,13 +13,21 @@ const transporter = nodemailer.createTransport({
 export function startNotificationJob() {
   console.log('Starting notification job...');
 
-  // Run every minute
-  // No handling for overlapping executions
+  let isProcessing = false;
+
+  // Run every minute; skip if a previous run is still in progress.
   setInterval(async () => {
+    if (isProcessing) {
+      return;
+    }
+
+    isProcessing = true;
     try {
       await processEmailQueue();
     } catch (error) {
       console.error('Notification job error:', error);
+    } finally {
+      isProcessing = false;
     }
   }, 60 * 1000);
 }

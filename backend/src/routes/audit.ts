@@ -51,34 +51,6 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Get single audit log
-router.get('/:logId', async (req: AuthRequest, res: Response) => {
-  try {
-    const { logId } = req.params;
-
-    const log = await prisma.auditLog.findFirst({
-      where: {
-        id: logId,
-        organizationId: req.user!.organizationId
-      },
-      include: {
-        user: {
-          select: { id: true, name: true, email: true }
-        }
-      }
-    });
-
-    if (!log) {
-      return res.status(404).json({ error: 'Audit log not found' });
-    }
-
-    res.json(log);
-  } catch (error) {
-    console.error('Get audit log error:', error);
-    res.status(500).json({ error: 'Failed to get audit log' });
-  }
-});
-
 // Get audit log statistics
 router.get('/stats/summary', async (req: AuthRequest, res: Response) => {
   try {
@@ -255,6 +227,7 @@ router.get('/user/:userId', async (req: AuthRequest, res: Response) => {
     const { userId } = req.params;
     const logs = await prisma.auditLog.findMany({
       where: {
+        organizationId: req.user!.organizationId,
         userId
       },
       orderBy: { createdAt: 'desc' },
@@ -333,6 +306,34 @@ router.delete('/cleanup', requireOwnerOrAdmin, async (req: AuthRequest, res: Res
   } catch (error) {
     console.error('Cleanup audit logs error:', error);
     res.status(500).json({ error: 'Failed to cleanup audit logs' });
+  }
+});
+
+// Get single audit log — keep after static paths so /stats, /search, /resource, etc. are not treated as IDs.
+router.get('/:logId', async (req: AuthRequest, res: Response) => {
+  try {
+    const { logId } = req.params;
+
+    const log = await prisma.auditLog.findFirst({
+      where: {
+        id: logId,
+        organizationId: req.user!.organizationId
+      },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true }
+        }
+      }
+    });
+
+    if (!log) {
+      return res.status(404).json({ error: 'Audit log not found' });
+    }
+
+    res.json(log);
+  } catch (error) {
+    console.error('Get audit log error:', error);
+    res.status(500).json({ error: 'Failed to get audit log' });
   }
 });
 

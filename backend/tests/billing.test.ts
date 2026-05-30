@@ -111,9 +111,6 @@ describe('Billing Routes', () => {
 
       expect(mockPrisma.invoice.updateMany).toHaveBeenCalled();
     });
-    it('should verify webhook signature', () => {
-      expect(true).toBe(true);
-    });
   });
 
   describe('Plan upgrades', () => {
@@ -127,11 +124,6 @@ describe('Billing Routes', () => {
       });
 
       expect(org.tier).toBe('enterprise');
-    });
-    it('should validate tier', () => {
-      const validTiers = ['free', 'starter', 'pro', 'enterprise'];
-      validTiers.forEach(tier => {
-      });
     });
   });
 

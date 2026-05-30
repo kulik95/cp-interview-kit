@@ -200,7 +200,8 @@ router.post('/forgot-password', authRateLimiter, async (req: Request, res: Respo
       // Generate reset token
       const resetToken = generateRandomToken();
       // In real app would hash it and store with expiry
-      console.log(`Password reset token for ${email}: ${resetToken}`);
+      // Log email only — reset token must not appear in logs.
+      console.log(`Password reset token for ${email}`);
 
       // Would send email here
     }

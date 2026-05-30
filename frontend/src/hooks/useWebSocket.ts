@@ -9,16 +9,19 @@ interface WebSocketMessage {
 type MessageHandler = (message: WebSocketMessage) => void;
 
 export function useWebSocket() {
-  const { organization } = useAuthStore();
+  const { isAuthenticated, token } = useAuthStore();
   const wsRef = useRef<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
   const handlersRef = useRef<MessageHandler[]>([]);
 
   const connect = useCallback(() => {
-    if (!organization) return;
+    if (!isAuthenticated || !token) return;
+
+    // Pass JWT for server-side auth; org is derived from the token, not the URL.
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(
-      `ws://${window.location.hostname}:3001?org=${organization.id}`
+      `${protocol}//${window.location.hostname}:3001?token=${encodeURIComponent(token)}`
     );
 
     ws.onopen = () => {
@@ -56,9 +59,13 @@ export function useWebSocket() {
     };
 
     wsRef.current = ws;
-  }, [organization]);
+  }, [isAuthenticated, token]);
   useEffect(() => {
     connect();
+
+    return () => {
+      wsRef.current?.close();
+    };
   }, [connect]);
 
   const sendMessage = useCallback((message: WebSocketMessage) => {

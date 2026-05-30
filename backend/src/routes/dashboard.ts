@@ -1,4 +1,4 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import { prisma } from '../index';
 import { AuthRequest, requireOwnerOrAdmin } from '../middleware/auth';
 import { validate, createDashboardSchema, createWidgetSchema } from '../middleware/validate';
@@ -7,6 +7,30 @@ import { broadcastToOrg } from '../index';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
+
+export async function getSharedDashboard(req: Request, res: Response) {
+  try {
+    const dashboard = await prisma.dashboard.findFirst({
+      where: {
+        id: req.params.dashboardId,
+        isPublic: true,
+      },
+      include: {
+        widgets: true,
+        organization: { select: { name: true } },
+      },
+    });
+
+    if (!dashboard) {
+      return res.status(404).json({ error: 'Dashboard not found or not public' });
+    }
+
+    res.json(dashboard);
+  } catch (error) {
+    console.error('Get shared dashboard error:', error);
+    res.status(500).json({ error: 'Failed to get dashboard' });
+  }
+}
 
 // Get all dashboards for organization
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -518,32 +542,6 @@ router.post('/:dashboardId/share', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('Share dashboard error:', error);
     res.status(500).json({ error: 'Failed to share dashboard' });
-  }
-});
-
-// Get shared dashboard (public endpoint would need to be added)
-router.get('/shared/:dashboardId', async (req: AuthRequest, res: Response) => {
-  try {
-    const { dashboardId } = req.params;
-
-    const dashboard = await prisma.dashboard.findFirst({
-      where: {
-        id: dashboardId,
-        isPublic: true
-      },
-      include: {
-        widgets: true
-      }
-    });
-
-    if (!dashboard) {
-      return res.status(404).json({ error: 'Dashboard not found or not public' });
-    }
-
-    res.json(dashboard);
-  } catch (error) {
-    console.error('Get shared dashboard error:', error);
-    res.status(500).json({ error: 'Failed to get dashboard' });
   }
 });
 

@@ -39,6 +39,11 @@ services:
       REDIS_URL: redis://redis:6379
       JWT_SECRET: super-secret-key-change-in-production
       PORT: 3001
+      # Restrict CORS to the frontend origin (see backend/src/index.ts).
+      FRONTEND_URL: http://localhost:3000
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +63,8 @@ services:
       - "3000:3000"
     environment:
       VITE_API_URL: http://localhost:3001
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "1000"
     depends_on:
       - backend
     volumes:

@@ -346,7 +346,8 @@ router.post('/payment-method', requireOwnerOrAdmin, async (req: AuthRequest, res
       where: { id: req.user!.organizationId },
       data: { stripeCustomerId: customerId }
     });
-    console.log(`Created payment method for org ${req.user!.organizationId}: ${cardToken}`);
+    // Log org only — card/payment tokens must not appear in logs.
+    console.log(`Created payment method for org ${req.user!.organizationId}`);
 
     res.json({ customerId, message: 'Payment method added' });
   } catch (error) {

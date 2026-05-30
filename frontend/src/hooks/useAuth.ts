@@ -1,10 +1,9 @@
-import { useEffect } from 'react';
 import { useAuthStore } from '../store/authSlice';
-
 export function useAuth() {
   const {
     user,
     organization,
+    token,
     isAuthenticated,
     isLoading,
     error,
@@ -12,18 +11,17 @@ export function useAuth() {
     logout,
     checkAuth,
   } = useAuthStore();
-  useEffect(() => {
-    checkAuth();
-  }, []);
 
   return {
     user,
     organization,
+    token,
     isAuthenticated,
     isLoading,
     error,
     login,
     logout,
+    checkAuth,
   };
 }
 
@@ -35,9 +33,9 @@ export function useRequireAuth() {
   return { isAuthenticated, isLoading };
 }
 
-// Get current user's token
+// Get current user's token from auth store (not localStorage directly).
 export function useToken() {
-  return localStorage.getItem('token');
+  return useAuthStore((state) => state.token);
 }
 
 // Check if user has specific role

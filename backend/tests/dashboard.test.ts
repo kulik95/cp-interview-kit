@@ -49,18 +49,12 @@ describe('Dashboard Routes', () => {
 
       expect(dashboards).toHaveLength(2);
     });
-    it('should handle large number of dashboards', async () => {
-      const manyDashboards = Array.from({ length: 1000 }, (_, i) => ({
-        id: `dash-${i}`,
-        name: `Dashboard ${i}`
-      }));
+    it('should cap pagination limit at the maximum page size', () => {
+      const { paginationSchema } = require('../src/middleware/validate');
 
-      mockPrisma.dashboard.findMany.mockResolvedValue(manyDashboards);
-
-      const dashboards = await mockPrisma.dashboard.findMany({});
-
-      expect(dashboards.length).toBe(1000);
-      // but instead it just verifies the mock returns 1000 items
+      expect(paginationSchema.safeParse({ limit: 101 }).success).toBe(false);
+      expect(paginationSchema.parse({ limit: 50 }).limit).toBe(50);
+      expect(paginationSchema.parse({}).limit).toBe(20);
     });
   });
 
@@ -148,9 +142,12 @@ describe('Dashboard Routes', () => {
 
       expect(dashboard.name).toBe('New Dashboard');
     });
-    it('should validate input', () => {
-      // Empty test
-      expect(true).toBe(true);
+
+    it('should reject dashboard input with an empty name', () => {
+      const { createDashboardSchema } = require('../src/middleware/validate');
+
+      expect(createDashboardSchema.safeParse({ name: '' }).success).toBe(false);
+      expect(createDashboardSchema.safeParse({ name: 'Valid Dashboard' }).success).toBe(true);
     });
   });
 

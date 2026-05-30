@@ -53,18 +53,40 @@ export default function Dashboard() {
     }
   }, [dashboardData]);
 
-  // Fetch widget data for all widgets
+  const widgetIds =
+    currentDashboard?.widgets?.map((widget) => widget.id).join(',') ?? '';
+
+  // Fetch all widget data in parallel; cancel stale requests when dashboard/widgets change.
   useEffect(() => {
-    if (!currentDashboard?.widgets) return;
-    currentDashboard.widgets.forEach(async (widget) => {
-      try {
-        const data = await fetchWidgetData(currentDashboard.id, widget.id);
-        setWidgetData(currentDashboard.id, widget.id, data.data);
-      } catch (error) {
-        console.error('Failed to fetch widget data:', error);
-      }
+    if (!currentDashboard?.widgets?.length) return;
+
+    const dashboardId = currentDashboard.id;
+    let cancelled = false;
+
+    Promise.all(
+      currentDashboard.widgets.map(async (widget) => {
+        try {
+          const response = await fetchWidgetData(dashboardId, widget.id);
+          return { widgetId: widget.id, data: response.data };
+        } catch (error) {
+          console.error('Failed to fetch widget data:', error);
+          return null;
+        }
+      })
+    ).then((results) => {
+      if (cancelled) return;
+
+      results.forEach((result) => {
+        if (result) {
+          setWidgetData(dashboardId, result.widgetId, result.data);
+        }
+      });
     });
-  }, [currentDashboard?.id, currentDashboard?.widgets?.length]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentDashboard?.id, widgetIds, setWidgetData]);
 
   // Create dashboard mutation
   const createMutation = useMutation({
@@ -105,8 +127,7 @@ export default function Dashboard() {
   const shareMutation = useMutation({
     mutationFn: () => shareDashboard(dashboardId!, { isPublic: true }),
     onSuccess: (data) => {
-      // Intentional flaw: Share URL shown but no copy button
-      setShareUrl(`${window.location.origin}/shared/${data.shareId}`);
+      setShareUrl(data.shareUrl || `${window.location.origin}/shared/${dashboardId}`);
     },
   });
   if (loadingDashboards) {
