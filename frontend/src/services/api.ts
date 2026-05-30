@@ -1,4 +1,14 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError } from 'axios';
+
+import { useAuthStore } from '../store/authSlice';
+import { useErrorStore } from '../store/errorSlice';
+import { getApiErrorMessage } from '../utils/apiError';
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    skipGlobalErrorHandler?: boolean;
+  }
+}
 
 // Create axios instance
 export const api = axios.create({
@@ -12,7 +22,7 @@ export const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = useAuthStore.getState().token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -23,11 +33,20 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor — show a consistent user-facing error via the global banner.
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError) => {
-    console.error('API Error:', error.response?.data || error.message);
+    const config = error.config;
+
+    if (!config?.skipGlobalErrorHandler) {
+      if (error.response?.status === 401) {
+        useAuthStore.getState().logout();
+        useErrorStore.getState().showError('Session expired. Please sign in again.');
+      } else {
+        useErrorStore.getState().showError(getApiErrorMessage(error));
+      }
+    }
 
     return Promise.reject(error);
   }

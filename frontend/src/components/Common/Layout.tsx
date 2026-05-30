@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authSlice';
+import { useErrorStore } from '../../store/errorSlice';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import {
   fetchNotifications,
@@ -16,6 +17,7 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, organization, logout } = useAuthStore();
+  const { message: errorMessage, clearError } = useErrorStore();
   const { isConnected } = useWebSocket();
 
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -283,6 +285,20 @@ export default function Layout() {
           </div>
         </div>
       </header>
+
+      {errorMessage && (
+        <div className="bg-red-100 border-b border-red-400 text-red-700 px-4 py-3 flex justify-between items-center">
+          <span>{errorMessage}</span>
+          <button
+            type="button"
+            onClick={clearError}
+            className="ml-4 text-red-700 hover:text-red-900 font-bold"
+            aria-label="Dismiss error"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Main content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">

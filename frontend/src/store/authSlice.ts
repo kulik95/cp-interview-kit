@@ -6,6 +6,7 @@ interface User {
   name: string;
   role: string;
   organizationId: string;
+  organization?: Organization;
 }
 
 interface Organization {
@@ -18,6 +19,7 @@ interface Organization {
 interface AuthState {
   user: User | null;
   organization: Organization | null;
+  token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -29,11 +31,18 @@ interface AuthState {
   checkAuth: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+function clearStoredAuth() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+}
+
+// Zustand is the runtime source of truth; localStorage is persistence only (read/written here).
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   organization: null,
+  token: null,
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true,
   error: null,
 
   login: async (email: string, password: string) => {
@@ -57,6 +66,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({
         user: data.user,
         organization: data.user.organization,
+        token: data.token,
         isAuthenticated: true,
         isLoading: false,
       });
@@ -65,19 +75,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         error: error.message,
         isLoading: false,
         isAuthenticated: false,
+        token: null,
       });
       throw error;
     }
   },
 
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    clearStoredAuth();
 
     set({
       user: null,
       organization: null,
+      token: null,
       isAuthenticated: false,
+      isLoading: false,
     });
   },
 
@@ -93,19 +105,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   checkAuth: async () => {
-    const token = localStorage.getItem('token');
+    set({ isLoading: true });
 
-    if (!token) {
-      set({ isAuthenticated: false });
+    const storedToken = localStorage.getItem('token');
+
+    if (!storedToken) {
+      set({
+        user: null,
+        organization: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
       return;
     }
-
-    set({ isLoading: true });
 
     try {
       const response = await fetch('/api/auth/verify', {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${storedToken}`,
         },
       });
 
@@ -117,22 +135,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         set({
           user,
+          organization: user?.organization ?? null,
+          token: storedToken,
           isAuthenticated: true,
           isLoading: false,
         });
       } else {
-        // Token invalid, clear everything
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        clearStoredAuth();
         set({
           user: null,
+          organization: null,
+          token: null,
           isAuthenticated: false,
           isLoading: false,
         });
       }
     } catch (error) {
       console.log('Auth check failed:', error);
-      set({ isLoading: false });
+      clearStoredAuth();
+      set({
+        user: null,
+        organization: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
     }
   },
 }));
