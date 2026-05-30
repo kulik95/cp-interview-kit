@@ -7,12 +7,13 @@ import { PrismaClient } from '@prisma/client';
 import authRoutes from './routes/auth';
 import organizationsRoutes from './routes/organizations';
 import usersRoutes from './routes/users';
-import dashboardRoutes from './routes/dashboard';
+import dashboardRoutes, { getSharedDashboard } from './routes/dashboard';
 import analyticsRoutes from './routes/analytics';
 import billingRoutes from './routes/billing';
 import notificationsRoutes from './routes/notifications';
 import auditRoutes from './routes/audit';
 import webhooksRoutes from './routes/webhooks';
+import commentsRoutes from './routes/comments';
 
 import { authMiddleware, verifyAuthToken } from './middleware/auth';
 import { rateLimiter } from './middleware/rateLimit';
@@ -62,6 +63,7 @@ app.get('/health', (req, res) => {
 
 // Public routes
 app.use('/api/auth', authRoutes);
+app.get('/api/dashboards/shared/:dashboardId', getSharedDashboard);
 
 // Protected routes
 app.use('/api/organizations', authMiddleware, organizationsRoutes);
@@ -72,6 +74,7 @@ app.use('/api/billing', authMiddleware, billingRoutes);
 app.use('/api/notifications', authMiddleware, notificationsRoutes);
 app.use('/api/audit', authMiddleware, auditRoutes);
 app.use('/api/webhooks', authMiddleware, webhooksRoutes);
+app.use('/api/comments', authMiddleware, commentsRoutes);
 
 // WebSocket handling
 const wsClients = new Map<string, Set<any>>();

@@ -148,7 +148,7 @@ export default function AuditLogs() {
     cleanupMutation.mutate(cleanupDays);
   };
 
-  const resourceTypes = ['dashboard', 'widget', 'user', 'organization', 'webhook', 'api_key'];
+  const resourceTypes = ['dashboard', 'widget', 'user', 'organization', 'webhook', 'apikey'];
 
   if (isLoading) {
     return (

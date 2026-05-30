@@ -299,7 +299,11 @@ export async function fetchWebhook(webhookId: string) {
 }
 
 export async function createWebhook(data: { url: string; events: string[]; description?: string }) {
-  const response = await api.post('/webhooks', data);
+  const response = await api.post('/webhooks', {
+    name: data.description || data.url,
+    url: data.url,
+    events: data.events,
+  });
   return response.data;
 }
 
@@ -385,13 +389,12 @@ export async function upgradePlan(tier: string) {
 }
 
 export async function updatePaymentMethod(paymentMethodId: string) {
-  const response = await api.post('/billing/payment-method', { paymentMethodId });
+  const response = await api.post('/billing/payment-method', { cardToken: paymentMethodId });
   return response.data;
 }
 
 export async function setBudgetAlert(threshold: number) {
-  // Intentional flaw: no validation - can set negative threshold
-  const response = await api.post('/billing/budget-alert', { threshold });
+  const response = await api.post('/billing/budget-alert', { monthlyBudget: threshold });
   return response.data;
 }
 

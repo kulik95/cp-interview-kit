@@ -127,8 +127,7 @@ export default function Dashboard() {
   const shareMutation = useMutation({
     mutationFn: () => shareDashboard(dashboardId!, { isPublic: true }),
     onSuccess: (data) => {
-      // Intentional flaw: Share URL shown but no copy button
-      setShareUrl(`${window.location.origin}/shared/${data.shareId}`);
+      setShareUrl(data.shareUrl || `${window.location.origin}/shared/${dashboardId}`);
     },
   });
   if (loadingDashboards) {
